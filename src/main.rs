@@ -5,6 +5,9 @@ use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 
+use cursive::views::TextView;
+use cursive::Cursive;
+
 fn main() {
     let matches = App::new("c8d")
         .version("1.0")
@@ -29,9 +32,17 @@ fn main() {
     let mut buffer = Vec::new();
     file.read_to_end(&mut buffer).unwrap();
 
-    println!("ADDR\tBYTE");
+    let mut siv = Cursive::default();
+    let mut data = String::new();
 
+    siv.add_global_callback('q', |s| s.quit());
+
+    data.push_str("ADDR\tBYTE\n");
+    //
     for (i, b) in buffer.iter().enumerate() {
-        println!("{:02X}\t{:02X}", i, b);
+        data.push_str(&format!("{:02X}\t{:02X}\n", i, b));
     }
+    siv.add_layer(TextView::new(data));
+
+    siv.run();
 }
