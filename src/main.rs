@@ -39,10 +39,15 @@ fn main() {
     let (x, y): (Vec<(usize, &u8)>, Vec<(usize, &u8)>) =
         buffer.iter().enumerate().partition(|(i, x)| i % 2 == 0);
 
-    x.iter()
+    let d = x
+        .iter()
         .zip(y.iter())
         .map(|((i, a), (_, b))| (i, (**a as u16) << 8 | (**b as u16)))
-        .for_each(|(address, instruction)| println!("0x{:04X} {}", address, decode(instruction)));
+        .map(|(address, instruction)| format!("0x{:04X} {}", address, decode(instruction)));
+
+    println!("ADDR   INST - TYPE\tDESCRPTION\tINFO");
+
+    d.for_each(|i| println!("{}", i));
 }
 
 #[derive(Debug)]
