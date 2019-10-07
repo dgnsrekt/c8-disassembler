@@ -1,5 +1,4 @@
-#![allow(dead_code, unused_imports, unused_variables, non_snake_case)]
-
+#![allow(dead_code, unused_imports, unused_variables)]
 use clap::{App, Arg, SubCommand};
 
 use std::error::Error;
@@ -43,9 +42,10 @@ fn main() {
         .iter()
         .zip(y.iter())
         .map(|((i, a), (_, b))| (i, (**a as u16) << 8 | (**b as u16)))
-        .map(|(address, instruction)| format!("0x{:04X} {}", address, decode(instruction)));
+        .map(|(address, instruction)| format!("0x{:04X} {}", address + 0x200, decode(instruction)));
 
-    println!("ADDR   INST - TYPE\tDESCRPTION\tINFO");
+    println!("ADDR   OP   - INST\tDESCRPTION\tINFO");
+    println!("-------------------------------------------------");
 
     d.for_each(|i| println!("{}", i));
 }
@@ -102,13 +102,13 @@ fn parse_xyn(opcode: Word) -> (Word, Word, Word) {
     (x, y, n)
 }
 
-fn x0000(opcode: Word) -> Instruction {
+fn x_0000(opcode: Word) -> Instruction {
     match opcode & 0x00EE {
-        0x00EE => return x00EE(opcode),
+        0x00EE => return x_00ee(opcode),
         _ => {}
     };
     match opcode & 0x00E0 {
-        0x00E0 => return x00E0(opcode),
+        0x00E0 => return x_00e0(opcode),
         _ => {}
     };
     let nnn = parse_nnn(opcode);
@@ -116,84 +116,89 @@ fn x0000(opcode: Word) -> Instruction {
     Instruction::new(opcode, "0NNN", "EXECUTE NNN", decoded)
 }
 
-fn x00E0(opcode: Word) -> Instruction {
+fn x_00e0(opcode: Word) -> Instruction {
     let decoded = format!("CLS");
     Instruction::new(opcode, "00E0", "CLEAR SCREEN", decoded)
 }
 
-fn x00EE(opcode: Word) -> Instruction {
+fn x_00ee(opcode: Word) -> Instruction {
     let decoded = format!("RETURN");
     Instruction::new(opcode, "00EE", "RETURN FROM SUBROUTINE", decoded)
 }
 
-fn x1NNN(opcode: Word) -> Instruction {
+fn x_1nnn(opcode: Word) -> Instruction {
     let nnn = parse_nnn(opcode);
-    let decoded = format!("JMP {}", nnn);
+    let decoded = format!("JMP #{:X}", nnn);
     Instruction::new(opcode, "1NNN", "JUMP TO NNN", decoded)
 }
 
-fn x2NNN(opcode: Word) -> Instruction {
+fn x_2nnn(opcode: Word) -> Instruction {
     let nnn = parse_nnn(opcode);
     let decoded = format!("CALL {:X}", nnn);
     Instruction::new(opcode, "2NNN", "CALL NNN", decoded)
 }
 
-fn x3XNN(opcode: Word) -> Instruction {
+fn x_3xnn(opcode: Word) -> Instruction {
     let (x, nn) = parse_xnn(opcode);
     let decoded = format!("V{:X}=={:X}", x, nn);
     Instruction::new(opcode, "3XNN", "SKIPIF VX==NN", decoded)
 }
 
-fn x4XNN(opcode: Word) -> Instruction {
+fn x_4xnn(opcode: Word) -> Instruction {
     let (x, nn) = parse_xnn(opcode);
     let decoded = format!("V{:X}!={:X}", x, nn);
     Instruction::new(opcode, "4XNN", "SKIPIF VX!=NN", decoded)
 }
 
-fn x5XY0(opcode: Word) -> Instruction {
+fn x_5xy0(opcode: Word) -> Instruction {
     let (x, y) = parse_xy0(opcode);
     let decoded = format!("V{:X}=V{:X}", x, y);
     Instruction::new(opcode, "5XY0", "SKIPIF VX=VY", decoded)
 }
 
-fn x6XNN(opcode: Word) -> Instruction {
+fn x_6xnn(opcode: Word) -> Instruction {
     let (x, nn) = parse_xnn(opcode);
     let decoded = format!("V{:X}={:X}", x, nn);
     Instruction::new(opcode, "6XNN", "SET VX=NN", decoded)
 }
 
-fn x7XNN(opcode: Word) -> Instruction {
+fn x_7xnn(opcode: Word) -> Instruction {
     let (x, nn) = parse_xnn(opcode);
     let decoded = format!("V{:X}+={:X}", x, nn);
     Instruction::new(opcode, "7XNN", "ADD VX=VX+NN", decoded)
 }
 
-fn x8000(opcode: Word) -> Instruction {
+fn x_8000(opcode: Word) -> Instruction {
     let x = (opcode & 0x0F00) >> 8;
     let y = (opcode & 0x00F0) >> 4;
     let decoded = format!("V{:X}=V{:X}", x, y);
     Instruction::new(opcode, "8XY0", "LD VX TO VY", decoded)
 }
 
-fn x9XY0(opcode: Word) -> Instruction {
+fn x_9xy0(opcode: Word) -> Instruction {
     let (x, y) = parse_xy0(opcode);
     let decoded = format!("V{:X}!=V{:X}", x, y);
     Instruction::new(opcode, "9XY0", "SKIPIF VX!=VY", decoded)
 }
 
-fn xANNN(opcode: Word) -> Instruction {
+fn x_annn(opcode: Word) -> Instruction {
     let nnn = parse_nnn(opcode);
     let decoded = format!("I={:X}", nnn);
     Instruction::new(opcode, "ANNN", "SET I=NNN", decoded)
 }
 
-fn xCXNN(opcode: Word) -> Instruction {
+fn x_bnnn(opcode: Word) -> Instruction {
+    let nnn = parse_nnn(opcode);
+    let decoded = format!("{}+V0", nnn);
+    Instruction::new(opcode, "BNNN", "JUMP TO NNN+V0", decoded)
+}
+fn x_cxnn(opcode: Word) -> Instruction {
     let (x, nn) = parse_xnn(opcode);
     let decoded = format!("V{:X}=RAND & {:X}", x, nn);
     Instruction::new(opcode, "CXNN", "VX=RAND() & NN", decoded)
 }
 
-fn xd000(opcode: Word) -> Instruction {
+fn x_dxyn(opcode: Word) -> Instruction {
     let (x, y, n) = parse_xyn(opcode);
     let decoded = format!("V{:X}, V{:X}, N{:X}", x, y, n);
     Instruction::new(opcode, "DXYN", "DRAW VX, VY, N", decoded)
@@ -201,19 +206,21 @@ fn xd000(opcode: Word) -> Instruction {
 
 fn decode(opcode: Word) -> Instruction {
     match opcode & 0xF000 {
-        0x0000 => x0000(opcode),
-        0x1000 => x1NNN(opcode),
-        0x2000 => x2NNN(opcode),
-        0x3000 => x3XNN(opcode),
-        0x4000 => x4XNN(opcode),
-        0x5000 => x5XY0(opcode),
-        0x6000 => x6XNN(opcode),
-        0x7000 => x7XNN(opcode),
-        0x8000 => x8000(opcode),
-        0x9000 => x9XY0(opcode),
-        0xA000 => xANNN(opcode),
-        0xC000 => xCXNN(opcode),
-        0xD000 => xd000(opcode),
-        _ => Instruction::new(opcode, "NOP", "UNKOWN OP", "UNKNOWN".to_string()),
+        0x0000 => x_0000(opcode),
+        0x1000 => x_1nnn(opcode),
+        0x2000 => x_2nnn(opcode),
+        0x3000 => x_3xnn(opcode),
+        0x4000 => x_4xnn(opcode),
+        0x5000 => x_5xy0(opcode),
+        0x6000 => x_6xnn(opcode),
+        0x7000 => x_7xnn(opcode),
+        0x8000 => x_8000(opcode),
+        0x9000 => x_9xy0(opcode),
+        0xA000 => x_annn(opcode),
+        0xB000 => x_bnnn(opcode),
+        0xC000 => x_cxnn(opcode),
+        0xD000 => x_dxyn(opcode),
+        _ => panic!("opcode not impl for {:04X}.", opcode),
+        //Instruction::new(opcode, "NOP", "UNKOWN OP", "UNKNOWN".to_string()),
     }
 }
