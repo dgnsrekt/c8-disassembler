@@ -220,7 +220,7 @@ fn decode(opcode: Word) -> Instruction {
         0xB000 => x_bnnn(opcode),
         0xC000 => x_cxnn(opcode),
         0xD000 => x_dxyn(opcode),
-        _ => panic!("opcode not impl for {:04X}.", opcode),
+        _ => unimplemented!("opcode not impl for {:04X}.", opcode),
         //Instruction::new(opcode, "NOP", "UNKOWN OP", "UNKNOWN".to_string()),
     }
 }
