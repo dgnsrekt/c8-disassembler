@@ -11,6 +11,18 @@ type Byte = u8;
 type Word = u16;
 type Address = usize;
 
+fn open_rom(path: &Path) -> Vec<u8>{
+    let mut file = match File::open(&path) {
+        Err(why) => panic!("Couldn't open {}: {}", &path.display(), why.description()),
+        Ok(file) => file,
+    };
+
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer).unwrap();
+    buffer
+
+}
+
 fn main() {
     let matches = App::new("c8d")
         .version("1.0")
@@ -23,17 +35,9 @@ fn main() {
         )
         .get_matches();
 
-    // Same as previous example...
     let path = Path::new(matches.value_of("INPUT").unwrap());
-    let display = path.display();
 
-    let mut file = match File::open(&path) {
-        Err(why) => panic!("Couldn't open {}: {}", display, why.description()),
-        Ok(file) => file,
-    };
-
-    let mut buffer = Vec::new();
-    file.read_to_end(&mut buffer).unwrap();
+    let buffer = open_rom(path);
 
     let (x, y): (Vec<(usize, &u8)>, Vec<(usize, &u8)>) =
         buffer.iter().enumerate().partition(|(i, x)| i % 2 == 0);
