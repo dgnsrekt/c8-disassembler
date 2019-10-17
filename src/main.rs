@@ -7,6 +7,13 @@ use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 
+use std::io;
+use termion::raw::IntoRawMode;
+use tui::backend::TermionBackend;
+use tui::layout::{Constraint, Direction, Layout};
+use tui::widgets::{Block, Borders, Widget};
+use tui::Terminal;
+
 type Byte = u8;
 type Word = u16;
 type Address = usize;
@@ -53,6 +60,19 @@ fn main() {
     println!("-------------------------------------------------");
 
     memory.for_each(|i| println!("{}", i));
+
+    let stdout = io::stdout().into_raw_mode().unwrap();
+    let backend = TermionBackend::new(stdout);
+    let mut terminal = Terminal::new(backend).unwrap();
+    terminal
+        .draw(|mut f| {
+            let size = f.size();
+            Block::default()
+                .title("Block")
+                .borders(Borders::ALL)
+                .render(&mut f, size);
+        })
+        .unwrap();
 }
 
 #[derive(Debug)]
