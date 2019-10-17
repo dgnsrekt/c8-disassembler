@@ -10,8 +10,10 @@ use std::path::Path;
 type Byte = u8;
 type Word = u16;
 type Address = usize;
+type Buffer = Vec<u8>;
+type Memory = Buffer;
 
-fn open_rom(path: &Path) -> Vec<u8>{
+fn open_rom(path: &Path) -> Buffer {
     let mut file = match File::open(&path) {
         Err(why) => panic!("Couldn't open {}: {}", &path.display(), why.description()),
         Ok(file) => file,
@@ -20,7 +22,6 @@ fn open_rom(path: &Path) -> Vec<u8>{
     let mut buffer = Vec::new();
     file.read_to_end(&mut buffer).unwrap();
     buffer
-
 }
 
 fn main() {
@@ -29,29 +30,29 @@ fn main() {
         .author("dgnsrekt <dgnsrekt@pm.me>")
         .about("Dissassembles chip 8 roms.")
         .arg(
-            Arg::with_name("INPUT")
+            Arg::with_name("ROM")
                 .help("Sets the input rom to use")
                 .required(true),
         )
         .get_matches();
 
-    let path = Path::new(matches.value_of("INPUT").unwrap());
+    let rom_path = Path::new(matches.value_of("ROM").unwrap());
 
-    let buffer = open_rom(path);
+    let buffer = open_rom(rom_path);
 
     let (x, y): (Vec<(usize, &u8)>, Vec<(usize, &u8)>) =
         buffer.iter().enumerate().partition(|(i, x)| i % 2 == 0);
 
-    let d = x
+    let memory = x
         .iter()
         .zip(y.iter())
         .map(|((i, a), (_, b))| (i, (**a as u16) << 8 | (**b as u16)))
         .map(|(address, instruction)| format!("0x{:04X} {}", address + 0x200, decode(instruction)));
 
-    println!("ADDR   OP   - INST\tDESCRPTION\tINFO");
+    println!("ADDR   OP     INST\tDESCRPTION\tINFO");
     println!("-------------------------------------------------");
 
-    d.for_each(|i| println!("{}", i));
+    memory.for_each(|i| println!("{}", i));
 }
 
 #[derive(Debug)]
@@ -173,10 +174,37 @@ fn x_7xnn(opcode: Word) -> Instruction {
 }
 
 fn x_8000(opcode: Word) -> Instruction {
-    let x = (opcode & 0x0F00) >> 8;
-    let y = (opcode & 0x00F0) >> 4;
+    match opcode & 0x000F {
+        0x0000 => x_8xy0(opcode),
+        0x0001 => x_8xy1(opcode),
+        0x0002 => x_8xy2(opcode),
+        0x0003 => x_8xy3(opcode),
+        _ => unimplemented!("opcode not impl for {:04X}.", opcode),
+    }
+}
+
+fn x_8xy0(opcode: Word) -> Instruction {
+    let (x, y) = parse_xy0(opcode);
     let decoded = format!("V{:X}=V{:X}", x, y);
-    Instruction::new(opcode, "8XY0", "LD VX TO VY", decoded)
+    Instruction::new(opcode, "8XY0", "STORE VX IN VY", decoded)
+}
+
+fn x_8xy1(opcode: Word) -> Instruction {
+    let (x, y) = parse_xy0(opcode);
+    let decoded = format!("VX=V{:X}|V{:X}", x, y);
+    Instruction::new(opcode, "8XY1", "SET VX TO VX|VY", decoded)
+}
+
+fn x_8xy2(opcode: Word) -> Instruction {
+    let (x, y) = parse_xy0(opcode);
+    let decoded = format!("VX=V{:X}&V{:X}", x, y);
+    Instruction::new(opcode, "8XY2", "SET VX TO VX&VY", decoded)
+}
+
+fn x_8xy3(opcode: Word) -> Instruction {
+    let (x, y) = parse_xy0(opcode);
+    let decoded = format!("VX=V{:X}^V{:X}", x, y);
+    Instruction::new(opcode, "8XY3", "SET VX TO VX^VY", decoded)
 }
 
 fn x_9xy0(opcode: Word) -> Instruction {
@@ -208,6 +236,53 @@ fn x_dxyn(opcode: Word) -> Instruction {
     Instruction::new(opcode, "DXYN", "DRAW VX, VY, N", decoded)
 }
 
+fn x_e000(opcode: Word) -> Instruction {
+    match opcode & 0x00FF {
+        0x009E => x_ex9e(opcode),
+        0x00A1 => x_exa1(opcode),
+        _ => unimplemented!("opcode not impl for {:04X}.", opcode),
+    }
+}
+
+fn x_ex9e(opcode: Word) -> Instruction {
+    let (x, _) = parse_xy0(opcode);
+    let decoded = format!("SKIPIF KEY==V{}", x);
+    Instruction::new(opcode, "EX9E", "SKIPIF VX==KEY", decoded)
+}
+
+fn x_exa1(opcode: Word) -> Instruction {
+    let (x, _) = parse_xy0(opcode);
+    let decoded = format!("SKIPIF KEY=!V{}", x);
+    Instruction::new(opcode, "EXA1", "SKIPIF VX=!KEY", decoded)
+}
+
+fn x_f000(opcode: Word) -> Instruction {
+    match opcode & 0x00FF {
+        0x0007 => x_fx07(opcode),
+        0x000A => x_fx0a(opcode),
+        0x0015 => x_fx15(opcode),
+        _ => unimplemented!("opcode not impl for {:04X}.", opcode),
+    }
+}
+
+fn x_fx07(opcode: Word) -> Instruction {
+    let (x, _) = parse_xy0(opcode);
+    let decoded = format!("V{}=DELAY", x);
+    Instruction::new(opcode, "FX07", "STORE VX=DELAY TIMER", decoded)
+}
+
+fn x_fx0a(opcode: Word) -> Instruction {
+    let (x, _) = parse_xy0(opcode);
+    let decoded = format!("V{}=KEY", x);
+    Instruction::new(opcode, "FX0A", "STORE VX=KEY PRESS", decoded)
+}
+
+fn x_fx15(opcode: Word) -> Instruction {
+    let (x, _) = parse_xy0(opcode);
+    let decoded = format!("DELAY TIMER=V{}", x);
+    Instruction::new(opcode, "FX15", "DELAY=VX", decoded)
+}
+
 fn decode(opcode: Word) -> Instruction {
     match opcode & 0xF000 {
         0x0000 => x_0000(opcode),
@@ -224,6 +299,8 @@ fn decode(opcode: Word) -> Instruction {
         0xB000 => x_bnnn(opcode),
         0xC000 => x_cxnn(opcode),
         0xD000 => x_dxyn(opcode),
+        0xE000 => x_e000(opcode),
+        0xF000 => x_f000(opcode),
         _ => unimplemented!("opcode not impl for {:04X}.", opcode),
         //Instruction::new(opcode, "NOP", "UNKOWN OP", "UNKNOWN".to_string()),
     }
