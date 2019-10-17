@@ -261,6 +261,9 @@ fn x_f000(opcode: Word) -> Instruction {
         0x0007 => x_fx07(opcode),
         0x000A => x_fx0a(opcode),
         0x0015 => x_fx15(opcode),
+        0x0018 => x_fx18(opcode),
+        0x001E => x_fx1e(opcode),
+        0x0029 => x_fx29(opcode),
         _ => unimplemented!("opcode not impl for {:04X}.", opcode),
     }
 }
@@ -268,19 +271,37 @@ fn x_f000(opcode: Word) -> Instruction {
 fn x_fx07(opcode: Word) -> Instruction {
     let (x, _) = parse_xy0(opcode);
     let decoded = format!("V{}=DELAY", x);
-    Instruction::new(opcode, "FX07", "STORE VX=DELAY TIMER", decoded)
+    Instruction::new(opcode, "FX07", "STORE VX IN DELAY TIMER", decoded)
 }
 
 fn x_fx0a(opcode: Word) -> Instruction {
     let (x, _) = parse_xy0(opcode);
     let decoded = format!("V{}=KEY", x);
-    Instruction::new(opcode, "FX0A", "STORE VX=KEY PRESS", decoded)
+    Instruction::new(opcode, "FX0A", "STORE VX TO KEY PRESS", decoded)
 }
 
 fn x_fx15(opcode: Word) -> Instruction {
     let (x, _) = parse_xy0(opcode);
     let decoded = format!("DELAY TIMER=V{}", x);
-    Instruction::new(opcode, "FX15", "DELAY=VX", decoded)
+    Instruction::new(opcode, "FX15", "SET DELAY TO VX", decoded)
+}
+
+fn x_fx18(opcode: Word) -> Instruction {
+    let (x, _) = parse_xy0(opcode);
+    let decoded = format!("SOUND TIMER=V{}", x);
+    Instruction::new(opcode, "FX18", "SET SOUND TO VX", decoded)
+}
+
+fn x_fx1e(opcode: Word) -> Instruction {
+    let (x, _) = parse_xy0(opcode);
+    let decoded = format!("V{}+I", x);
+    Instruction::new(opcode, "FX1E", "ADD VX TO I", decoded)
+}
+
+fn x_fx29(opcode: Word) -> Instruction {
+    let (x, _) = parse_xy0(opcode);
+    let decoded = format!("SET I, V{}", x);
+    Instruction::new(opcode, "FX29", "SET I TO HEX AT VX", decoded)
 }
 
 fn decode(opcode: Word) -> Instruction {
